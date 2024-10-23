@@ -17,6 +17,11 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,9 +34,11 @@ public class MainActivity extends AppCompatActivity {
     ListView listViewProducts;
 
     List<Product> products;
+    DatabaseReference databaseProducts;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        databaseProducts = FirebaseDatabase.getInstance().getReference("products");
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
@@ -64,6 +71,28 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onStart() {
         super.onStart();
+        databaseProducts.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot){
+                //clearing the previous artist list
+                products.clear();
+                //iterating through all the nodes
+                for (DataSnapshot postSnapshot : dataSnapshot.getChildren()) {
+                    //getting product
+                    Product product = postSnapshot.getValue(Product.class);
+                    //adding product to the list
+                    products.add(product);
+                }
+                //creating adapter
+                ProductList productsAdapter = new ProductList(MainActivity.this, products);
+                listViewProducts.setAdapter(productsAdapter);
+            }
+
+            @Override
+            public void onCancelled(DatabaseError databaseError){
+
+            }
+        });
     }
 
 
@@ -105,17 +134,42 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateProduct(String id, String name, double price) {
-
-        Toast.makeText(getApplicationContext(), "NOT IMPLEMENTED YET", Toast.LENGTH_LONG).show();
+        //getting the key for the specified product
+        DatabaseReference dR = FirebaseDatabase.getInstance().getReference("product").child(id);
+        Product product = new Product(id,name,price);
+        dR.setValue(product);
+        Toast.makeText(getApplicationContext(), "Product Updated", Toast.LENGTH_LONG).show();
     }
 
     private void deleteProduct(String id) {
-
-        Toast.makeText(getApplicationContext(), "NOT IMPLEMENTED YET", Toast.LENGTH_LONG).show();
+        //getting specified product reference
+        DatabaseReference dR = FirebaseDatabase.getInstance().getReference("product").child(id);
+        //removing
+        dR.removeValue();
+        Toast.makeText(getApplicationContext(), "Product Deleted", Toast.LENGTH_LONG).show();
     }
 
     private void addProduct() {
+        //getting the values to save
+        String name = editTextName.getText().toString().trim();
+        double price = Double.parseDouble(String.valueOf(editTextPrice.getText().toString()));
+        //checking provided value was not empty
+        if (!TextUtils.isEmpty(name)){
+            //will get a unique ID for the product entry. This will be used as the key for that
+            String id = databaseProducts.push().getKey();
+            //creating Product Object
+            Product product = new Product(id, name, price);
+            //Saving it
+            databaseProducts.child(id).setValue(product);
+            //Clearing TextBoxes
+            editTextName.setText("");
+            editTextPrice.setText("");
 
-        Toast.makeText(this, "NOT IMPLEMENTED YET", Toast.LENGTH_LONG).show();
+            //success display
+            Toast.makeText(this,"Product added",Toast.LENGTH_LONG).show();
+        } else {
+            //if empty display wrong entry
+            Toast.makeText(this, "Please enter a name", Toast.LENGTH_LONG).show();
+        }
     }
 }
